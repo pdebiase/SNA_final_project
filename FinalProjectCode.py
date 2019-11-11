@@ -1,27 +1,40 @@
 # Importing packages
 import numpy as np
 import pandas as pd
-#import time
+import time
 import networkx as nx
 from functools import reduce
 import operator
-import math
-
+from random import choice
+import functools
+import os
 ############################################ DATA PREPARATION ############################################
 
+
+os.chdir("C:\\Users\\pvbia\\EPA - Delft\\2o Year\\Social Network\\Final Project")
 # Reading a dataframe
-df = pd.read_csv("./data/5livemocha.csv",sep=";")
+df = pd.read_csv("./data/1jazz_edges.csv",sep=";")
 # Creating a network
 G = nx.from_pandas_edgelist(df, source="Source", target="Target")
 # Creating the outbreak generator
 
 ############################################ Outbreak Function ############################################
 #The output is a list in which each element i is the set of nodes that was infected at time step i.
-def outbreak(G,initial_infected_nodes,p=0.5,runs=10):
+def outbreak(G,initial_infected_nodes_status=False,p=False,runs=10):
     # List with all runs output
     all_runs_list = []
     # Run the algorithm 'runs' times
     for run in range(runs):
+        # Using a fixed p or sampling from a 20-60 distribution
+        if p==False:
+            prob = np.random.uniform(20,60,1)[0]/100
+        else:
+            prob = p
+        #Using fixed initial nodes or getting it randomly
+        if initial_infected_nodes_status==False:
+            initial_infected_nodes = [choice(list(G.nodes()))]
+        else:
+            initial_infected_nodes = initial_infected_nodes_status
         # Random seed equals to run so we always can recover the same output
         np.random.seed(run)
         # Nodes that are infecting other nodes in this time step
@@ -34,7 +47,7 @@ def outbreak(G,initial_infected_nodes,p=0.5,runs=10):
         while transmissible_nodes:
             # For each node recently infected we are going to check its neighbors and infect new nodes with probability p
             for n in transmissible_nodes:
-                infection = np.random.uniform(0,1,len(list(G.neighbors(n)))) < p
+                infection = np.random.uniform(0,1,len(list(G.neighbors(n)))) < prob
                 just_infected += list(np.extract(infection, list(G.neighbors(n))))
             # Now the recent infected become the trasmissible nodes (only if they were not infected before)
             transmissible_nodes = list(set(just_infected) - set(reduce(operator.concat, all_infected)))
@@ -46,6 +59,7 @@ def outbreak(G,initial_infected_nodes,p=0.5,runs=10):
         all_runs_list.append(all_infected)
 
     return all_runs_list
+
 
 
 # Creating outbreak simulations
@@ -65,7 +79,7 @@ def DL(outbreak_simulations, placement):
         if list(set(placement) & set(reduce(operator.concat, run))):
             detection_count += 1
     # We need the detection likelihood thus the number of detection divded by the total number of simulations
-    return detection_count/len(outbreak_simulations)
+    return 1-(detection_count/len(outbreak_simulations))
 
 ### Testing
 # Calculating the DL
@@ -76,7 +90,7 @@ print(DL(outbreak_simulations, placement))
     ###### Detection time (DT)
     
 #Measures the time passed from outbreak till detection by one of the selected nodes
-def DT(outbreak_simulations, placement, max_penalty=math.inf):
+def DT(outbreak_simulations, placement):
     # Output is a list with the time step in which the outbreak was detected for each run
     output = []
     # Creating a set for the placement
@@ -94,8 +108,9 @@ def DT(outbreak_simulations, placement, max_penalty=math.inf):
                     break
         # If not detected, than the detection time is the max penalty
         else:
+            max_penalty = len(run)
             output.append(max_penalty)
-    return output
+    return np.mean(output)
 
 ### Testing
     # Calculating the DT
@@ -129,10 +144,110 @@ def PA(outbreak_simulations, placement):
         # If not detected, than the pop affected is the size of the outbreak
         else:
             output.append(len(reduce(operator.concat, run)))
-    return output
+    return np.mean(output)
 
 ### Testing
     # Calculating the PA
 placement = [112394,22310]
 print("PA")
 print(PA(outbreak_simulations, placement))
+
+########################################## Naive Algorithm ##########################################
+
+def naive_greedy(outbreak_simulations,budget,criterion,G):
+    #Function Selection
+    if criterion == "PA":
+        function = functools.partial(PA,outbreak_simulations=outbreak_simulations)
+    if criterion == "DT":
+        function = functools.partial(DT,outbreak_simulations=outbreak_simulations)
+    if criterion == "DL":
+        function = functools.partial(DL,outbreak_simulations=outbreak_simulations)
+    nodes = list(G.nodes())
+    placement = []
+    #Finding best placement
+    for i in range(budget):
+        scores = []
+        for n in nodes:
+            placement.append(n)
+            scores.append(function(placement=placement))
+            placement.remove(n)
+        best_node = nodes[np.argmin(scores)]
+        placement.append(best_node)
+        nodes.remove(best_node)
+    
+    return placement
+################################################ CELF ##################################################
+    
+def CELF(outbreak_simulations,budget,criterion,G):
+    #Function Selection
+    if criterion == "PA":
+        function = functools.partial(PA,outbreak_simulations=outbreak_simulations)
+    if criterion == "DT":
+        function = functools.partial(DT,outbreak_simulations=outbreak_simulations)
+    if criterion == "DL":
+        function = functools.partial(DL,outbreak_simulations=outbreak_simulations)
+    #Formula
+    nodes = list(G.nodes())
+    placement = []
+    
+    #First run
+    scores = []
+    placement=[]
+    for n in nodes:
+        placement.append(n)
+        scores.append(function(placement=placement))
+        placement.remove(n)
+    best_node = nodes[np.argmin(scores)]
+    placement.append(best_node)
+    nodes.remove(best_node)
+    del scores[np.argmin(scores)]
+    #Preparation for 2nd run
+    #getting indexes of the sort
+    scores = [[index,value] for index, value in sorted(enumerate(scores), key=lambda x: x[1])]
+    #Finding best placement
+    while len(placement) < budget:
+       #calculating
+        actual_score = function(placement=placement)
+        placement.append(nodes[scores[0][0]])
+        top_node_marginal_score = function(placement=placement)-actual_score
+        placement.remove(nodes[scores[0][0]])
+        #chek that
+        scores[0][1] = top_node_marginal_score
+           #sort 
+        scores = sorted(scores, key=lambda x: x[1])
+           #checking
+        if scores[0][1] == top_node_marginal_score:
+           # resorting
+            placement.append(nodes[scores[0][0]])
+            del scores[0]
+            nodes.remove(nodes[scores[0][0]])
+               
+    return placement
+
+scores=[10,11,12,13]
+scores = [[index,value] for index, value in sorted(enumerate(scores), reverse=True, key=lambda x: x[1])]
+########################################## EXPERIMENTS ##########################################
+# Generating outbreaks scenarios and other parameters
+n_of_scenarios = 10
+outbreak_simulations = outbreak(G,runs=n_of_scenarios)
+budget = 5
+
+# Naive Algorithm
+i_time = time.time()
+naive = naive_greedy(outbreak_simulations,budget=budget,criterion="DL",G=G)
+f_time = time.time()-i_time
+print("naive")
+print(f_time)
+print(naive)
+# CELF
+i_time = time.time()
+celf = CELF(outbreak_simulations,budget=budget,criterion="DL",G=G)
+f_time = time.time()-i_time
+print("celf")
+print(f_time)
+print(celf)
+
+
+########
+
+
