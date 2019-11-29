@@ -8,6 +8,7 @@ from random import choice
 import pickle
 from multiprocessing import Pool
 import functools
+import time
 
 ### CSV READING AND NETWORK CREATION ### 
 
@@ -24,10 +25,9 @@ def edgelist_csv_to_graph(filename="./data/1jazz_edges.csv"):
     return G
 
 ### OUTBREAK GENERATOR ### 
-def simulate_outbreak(G,run, init_nodes=[], p=False):
+def simulate_outbreak(run, G, init_nodes=[], p=False):
     
     # Run the algorithm 'n_runs' times
-    np.random.seed(run)
     initial_infected_nodes = []
     
     # Using a fixed p or sampling from a 1-10 distribution
@@ -74,32 +74,39 @@ def simulate_outbreaks(G, init_nodes=[], p=False, n_runs=10):
     '''
     runs = list(range(n_runs))
     
-    function = functools.partial(simulate_outbreak,G=G, init_nodes=init_nodes, p=p)
+    function = functools.partial(simulate_outbreak, G=G, init_nodes=init_nodes, p=p)
    
-    if __name__ == '__main__':
-        pool = Pool(6)
-        results = pool.map(function, runs)    
+    pool = Pool(3)
+    results = pool.map(function, runs)    
+    pool.close()
+    pool.join()
     
     return results
 
 
 ### RUNNING FOR ALL FIVE FILES### 
 
-file_names = [["1jazz_outbreaks.data", "./data/1jazz_edges.csv"],
-              ["2tvshow_outbreaks.data","./data/2tvshow_edges.csv"],
-              ["3politician_outbreaks.data","./data/3politician_edges.csv"],
-              ["4public_figure_outbreaks.data","./data/4public_figure_edges.csv"],
-              ["5new_sites_outbreaks.data","./data/5new_sites_edges.csv"]
-             ]
+def main():
+    np.random.seed(1874)
+    file_names = [["1jazz_outbreaks.data", "./data/1jazz_edges.csv"],
+                  ["2tvshow_outbreaks.data","./data/2tvshow_edges.csv"],
+                  ["3politician_outbreaks.data","./data/3politician_edges.csv"],
+                  ["4public_figure_outbreaks.data","./data/4public_figure_edges.csv"],
+                  ["5new_sites_outbreaks.data","./data/5new_sites_edges.csv"]
+                 ]
 
-for f in file_names:
-    G = edgelist_csv_to_graph(f[1])
-    outbreak = simulate_outbreaks(G, init_nodes=[], p=False, n_runs=10000)
-    with open(f[0], 'wb') as filehandle:
-        # store the data as binary data stream
-        pickle.dump(outbreak, filehandle)
-        
-        
+    for f in file_names:
+        G = edgelist_csv_to_graph(f[1])
+        t_start = time.time()
+        outbreak = simulate_outbreaks(G=G, init_nodes=[], p=0.05, n_runs=10000)
+        with open(f[0], 'wb') as filehandle:
+            # store the data as binary data stream
+            pickle.dump(outbreak, filehandle)
+        print("Simulated outbreaks for "+str(f[1])+" in "+str(time.time()-t_start))
+
+        del G
+if __name__ == '__main__':
+    main()
 
 
 
