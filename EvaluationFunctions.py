@@ -9,17 +9,15 @@ def detection_likelihood(run, placement, inverse=True):
     :param inverse: if inverse is set to True, return 1 - detection likelihood score, such that a lower score is a better score
     :return: Returns the average detection likelihood score (between 0 and 1) over all runs
     '''
-    # If any node in the placement got infeceted then we detected the outbreak
-#         if list(set(placement) & set(reduce(operator.concat, run))):
-#             detection_count += 1
     dl = 0
+
     for node in placement:
         if node in run[0]:
             dl = 1
             break
+
     if inverse:
         return 1-dl
-    
     else:
         return dl
 
@@ -31,12 +29,6 @@ def detection_time(run, placement):
     :return: Returns the average detection time score over all runs
     '''
          
-    # Getting max penalty
-    max_penalty = 0
-    for iteration in run[1]:
-        max_penalty+=len(iteration)
-    
-    # For each run we need to compute the detection time
     detected = False
     dt = {}
     for node in placement:
@@ -44,11 +36,9 @@ def detection_time(run, placement):
             detected = True 
             dt.update({node:run[0][node]})        
     if detected:
-        output = (dt[min(dt.keys(), key=(lambda k: dt[k]))])
+        return (dt[min(dt.keys(), key=(lambda k: dt[k]))]/len(run[1]))
     else:
-        output = max_penalty
-        
-    return (output/max_penalty)
+        return 1
 
 def population_affected(run, placement):
     '''
@@ -58,27 +48,26 @@ def population_affected(run, placement):
     :return: Returns the average population affected score over all runs
     '''
           
-    # Max penalty
-    max_penalty = 0
-    for i in range(0, len(run[1])):
-        max_penalty += len(run[1][i])
-    # If any node in the placement got infeceted then we detected the outbreak and we need to check the population affected
-    detected = False
-    dt = -1
     pa = 0
+    detected = False   
+    dt = -1
+    min_dt = np.inf
+
     for node in placement:
         if node in run[0]:
             dt = run[0][node] 
-            detected = True
-            break
+            detected=True
+            if dt < min_dt:
+                min_dt = dt
+    pa = 0
 
     if detected:
-        for i in range(0, dt):
+        for i in range(0, min_dt):
             pa += len(run[1][i])
     else:
-        pa = max_penalty
-
-    return (pa/max_penalty)
+        pa = len(run[0])
+    
+    return (pa/len(run[0]))
 
 #Fraction of information cascades and contamination events detected by the selected nodes
 def detection_likelihood_mean(outbreak_simulations, placement, inverse=True):
