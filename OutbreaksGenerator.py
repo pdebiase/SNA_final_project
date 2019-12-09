@@ -60,7 +60,7 @@ def simulate_outbreak_inverted_index(G, init_nodes=[], p=0.05, n_runs=10):
         just_infected = []
         # History of all nodes that become infected - at the start just the the initial nodes
         [outbreak_dict.update({node:0}) for node in initial_infected_nodes]
-        # The algorithm runs when there is at least one trasmissible node
+        # The algorithm runs when there is at least one transmissible node
         i = 1
         all_infected = [initial_infected_nodes]
         while transmissible_nodes:
@@ -72,7 +72,6 @@ def simulate_outbreak_inverted_index(G, init_nodes=[], p=0.05, n_runs=10):
             # Now the recent infected become the trasmissible nodes (only if they were not infected before)
             transmissible_nodes = list(set(just_infected) - set(reduce(operator.concat, all_infected)))
             # And they are added to the list with the history of all nodes infected
-#             all_infected.extend([transmissible_nodes])
             [outbreak_dict.update({node:i}) for node in transmissible_nodes]
             all_infected.extend([transmissible_nodes])
             i += 1
@@ -86,14 +85,11 @@ def simulate_outbreak_inverted_index(G, init_nodes=[], p=0.05, n_runs=10):
 
 ### RUNNING FOR ALL FIVE FILES### 
 
-#folders
-
-path = "C:\\Users\\pvbia\\EPA - Delft\\2o Year\\Social Network\\Final Project\\SNA_final_project (v optimized)"
-os.chdir(path)
-os.getcwd()
-
-
 def main():
+    # path = "C:\\Users\\pvbia\\EPA - Delft\\2o Year\\Social Network\\Final Project\\SNA_final_project (v optimized)"
+    os.chdir(path)
+    os.getcwd()
+
     np.random.seed(1874)
     file_names = [["1jazz_outbreaks.data", "./data/1jazz_edges.csv"],
                   ["2tvshow_outbreaks.data","./data/2tvshow_edges.csv"],

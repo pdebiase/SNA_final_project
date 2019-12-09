@@ -2,10 +2,11 @@
 """
 Created on Sun Nov 24 19:07:31 2019
 
-@author: pvbia
+@authors: @pdebiase, @victorneuteboom
 """
 import os
 import pandas as pd
+import numpy as np
 import pickle
 import EvaluationFunctions as ef
 import OutbreaksGenerator as ob
@@ -34,10 +35,6 @@ def experiment_all_data(file_names, budgets, functions, algorithms, n_cores, out
     del data
 
     fields = ['Dataset','Algorithm','Budget','Runtime','Criterion','Score','Function Evaluations']
-
-    with open(output_file, 'w+', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(fields)
 
     pool = multiprocessing.Pool(n_cores)
     t = pool.map(a.experiment, experiments)
@@ -76,18 +73,13 @@ def experiment_train_test_split(file_names, budgets, functions, algorithms, n_co
     # Running experiments Using multiprocessing
     pool = multiprocessing.Pool(n_cores)
     t = pool.map(a.experiment_test, experiments)
-        
-    # df = pd.DataFrame(t,columns=['Dataset', 'Algorithm', 'Budget', 'Runtime', 'Criterion', 'Train Score', 'Test Score', 'Function Evaluations'])  
-
-    # Saving in CSV
-    # df.to_csv("train_test_experiment.csv")
 
 
 def main():
     ####### Creating experiments setup ########
-    n_cores = 3
+    n_cores = 12
     file_names = [
-                    ["1jazz_outbreaks.data", "./data/1jazz_edges.csv","1jazz"],
+                    # ["1jazz_outbreaks.data", "./data/1jazz_edges.csv","1jazz"],
                     ["2tvshow_outbreaks.data","./data/2tvshow_edges.csv","2tvshow"],
                     ["3politician_outbreaks.data","./data/3politician_edges.csv","3politician"],
                     ["4public_figure_outbreaks.data","./data/4public_figure_edges.csv","4public_figure"],
@@ -95,26 +87,40 @@ def main():
                 ]
 
 
-    budgets = [5]
+    budgets = [
+                5, 
+                10, 
+                15,
+                ]
 
     functions = [ef.detection_likelihood_mean,ef.detection_time_mean,ef.population_affected_mean]
 
-    output_file1 = "all_data.csv"
-    output_file2 = "train_test.csv"
+    output_file1 = "SASH_results.csv"
+    # output_file2 = "train_test.csv"
     algorithms = [
                     a.naive_greedy, 
                     a.CELF,
                     a.community_degree, 
+                ]
+
+    non_deterministic_algorithms = [
                     a.SA, 
                     a.SA_cauchy, 
                     a.SA_geometric,
-                    # a.SA_SASH,
+                    a.SA_SASH,
                 ]
-    # path = "C:\\Users\\pvbia\\EPA - Delft\\2o Year\\Social Network\\Final Project\\SNA_final_project (v optimized)"
-    # os.chdir(path)
+
+    fields = ['Dataset','Algorithm','Budget','Runtime','Criterion','Score','Function Evaluations']
+
+    with open(output_file1, 'w+', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(fields)
+
+    np.random.seed(1874)
 
     experiment_all_data(file_names, budgets, functions, algorithms, n_cores, output_file1)
-    experiment_train_test_split(file_names, budgets, functions, algorithms, n_cores, output_file2)
+    for i in range(3):
+        experiment_all_data(file_names, budgets, functions, non_deterministic_algorithms, n_cores, output_file1)
 
 if __name__ == '__main__':
     main()

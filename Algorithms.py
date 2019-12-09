@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Dec  1 18:45:41 2019
-
-@author: pvbia
-"""
-
-# -*- coding: utf-8 -*-
-"""
 Created on Sun Nov 24 19:07:31 2019
 
-@author: pvbia
+@authors: @pdebiase, @victorneuteboom
 """
 import os
 import numpy as np
@@ -209,7 +202,7 @@ def SA(outbreak_simulations, budget, eval_function, G, t_start = 0.01, t_end = 0
 
     return best_placement, best_score, fe_best
 
-def SA_cauchy(outbreak_simulations, budget, eval_function, G, t_start = 0.01, n_eval=100000, n_perturbations = 100):
+def SA_cauchy(outbreak_simulations, budget, eval_function, G, t_start = 0.01, n_eval=10000, n_perturbations = 100):
     '''
     Simulated annealing algorithm to determine the nodes that minimize the total penalty of the eval_function.
     '''
@@ -252,7 +245,7 @@ def SA_cauchy(outbreak_simulations, budget, eval_function, G, t_start = 0.01, n_
 
     return best_placement, best_score, fe_best
 
-def SA_geometric(outbreak_simulations, budget, eval_function, G, t_start=0.01, n_eval=100000, n_perturbations = 100, alpha = 0.95):
+def SA_geometric(outbreak_simulations, budget, eval_function, G, t_start=0.01, n_eval=10000, n_perturbations = 100, alpha = 0.95):
     '''
     Simulated annealing algorithm to determine the nodes that minimize the total penalty of the eval_function.
     '''
@@ -290,9 +283,9 @@ def SA_geometric(outbreak_simulations, budget, eval_function, G, t_start=0.01, n
         t = t_start * (alpha ** cur_iter)
         cur_iter += 1
 
-    return best_placement, best_score, fe_total
+    return best_placement, best_score, fe_best
 
-def SA_SASH(outbreak_simulations, budget, eval_function, G, t_start=0.1, t_end=0, delta_t=0.0001, n_perturbations = 100, verbosity = 2):
+def SA_SASH(outbreak_simulations, budget, eval_function, G, t_start = 0.01, t_end = 0.00001, delta_t = 0.0001, n_perturbations = 100, verbosity = 2):
     '''
     Simulated annealing algorithm to determine the nodes that minimize the total penalty of the eval_function.
     '''
@@ -306,16 +299,19 @@ def SA_SASH(outbreak_simulations, budget, eval_function, G, t_start=0.1, t_end=0
     scores = scores - max_penalty
     best_placement = placement
     best_score = placement_score
+    fe_total = 0
+    fe_best = fe_total
     
     penalty_sum = np.sum(scores)
     p = [score / penalty_sum for score in scores]
     
     t = t_start
-    print("Initialisation took " + str(time.time()-init_time))
-    while(t > t_end):
+    # print("Initialisation took " + str(time.time()-init_time))
+    while(fe_total < 9998):
         for i in range(0, n_perturbations):
             new_placement = SASH(G, copy.deepcopy(nodes), scores, copy.deepcopy(placement), p)
             new_placement_score = eval_function(outbreak_simulations, new_placement)
+            fe_total += 1
             delta_f = new_placement_score - placement_score
             if delta_f <= 0:
                 placement = new_placement
@@ -331,13 +327,15 @@ def SA_SASH(outbreak_simulations, budget, eval_function, G, t_start=0.1, t_end=0
             if(placement_score < best_score):
                 best_placement = placement
                 best_score = placement_score
+                fe_best = fe_total
+
         t -= delta_t
 #         print("Current score: " + str(placement_score))
 #         print("Current best: " + str(best_score))
-    print("Best score: " + str(best_score))
-    print("Final score: " + str(placement_score)) 
+    # print("Best score: " + str(best_score))
+    # print("Final score: " + str(placement_score)) 
 #         print(t)
-    return best_placement, best_score
+    return best_placement, best_score, fe_best+len(nodes)
 
 def nodes_within_distance(placement, G, distance):
     nodes_within_d = set()
@@ -354,8 +352,8 @@ def SASH(G, nodes, scores, placement, p):
     neighborhood = nodes_within_distance(placement, G, 2)
     n = len(placement)
     n_nodes = len(nodes)
-      
-    while True:
+    # Instead of while 2: use a range to avoid getting stuck with small networks
+    for i in range(0, n_nodes):
         r = randint(0, n-1)
         replacement = nodes[np.random.choice(n_nodes, p=p)]
         if(replacement not in neighborhood):
